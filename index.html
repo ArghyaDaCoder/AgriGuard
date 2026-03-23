@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FarmGuard IoT Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Poppins', sans-serif; background: linear-gradient(135deg, #0a192f 0%, #0d3b3f 100%); color: #e6f1ff; }
+        .card { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 1rem; padding: 2rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3); transition: all 0.3s ease; }
+        .card:hover { transform: translateY(-5px); border: 1px solid rgba(72, 187, 120, 0.4); }
+        .toggle-dot { top: -.25rem; left: -.25rem; transition: all 0.3s ease-in-out; }
+        input:checked ~ .toggle-dot { transform: translateX(100%); background-color: #48bb78; }
+        input:checked ~ .toggle-bg { background-color: #1a202c; border-color: #48bb78; }
+        .status-pulse { animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(72, 187, 120, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(72, 187, 120, 0); } 100% { box-shadow: 0 0 0 0 rgba(72, 187, 120, 0); } }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+
+    <header class="flex items-center justify-between pb-10 border-b border-gray-700 mb-10">
+        <div class="flex items-center gap-3">
+            <svg class="w-10 h-10 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+            <h1 class="text-3xl font-bold">AGRI<span class="text-green-400">GUARD</span> Dashboard</h1>
+        </div>
+        <div class="flex items-center gap-3 bg-gray-900 px-4 py-2 rounded-full border border-gray-700">
+            <div id="status-indicator" class="w-3 h-3 bg-green-500 rounded-full status-pulse"></div>
+            <span class="text-sm font-medium text-gray-300">System: Connected</span>
+        </div>
+    </header>
+
+    <main class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+
+        <div class="card flex flex-col gap-4">
+            <div class="flex items-center justify-between">
+                <h2 class="text-xl font-semibold text-gray-200">Soil Moisture</h2>
+                <svg class="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+            </div>
+            <div class="flex items-baseline gap-2">
+                <span id="soil-moisture-percent" class="text-6xl font-bold text-white">--</span>
+                <span class="text-2xl font-medium text-gray-400">%</span>
+            </div>
+            <p class="text-sm text-gray-400">Current Level: <span id="soil-raw-value">--</span></p>
+            <div class="w-full bg-gray-700 rounded-full h-2.5 mt-2">
+                <div id="soil-bar" class="bg-green-500 h-2.5 rounded-full" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <div class="card flex flex-col gap-4">
+            <div class="flex items-center justify-between">
+                <h2 class="text-xl font-semibold text-gray-200">Temperature</h2>
+                <svg class="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+            </div>
+            <div class="flex items-baseline gap-2">
+                <span id="temperature-value" class="text-6xl font-bold text-white">--</span>
+                <span class="text-2xl font-medium text-gray-400">°C</span>
+            </div>
+            <p class="text-sm text-gray-400">Real-time reading</p>
+        </div>
+
+        <div class="card flex flex-col gap-4">
+            <div class="flex items-center justify-between">
+                <h2 class="text-xl font-semibold text-gray-200">Air Humidity</h2>
+                <svg class="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+            </div>
+            <div class="flex items-baseline gap-2">
+                <span id="humidity-value" class="text-6xl font-bold text-white">--</span>
+                <span class="text-2xl font-medium text-gray-400">%</span>
+            </div>
+            <p class="text-sm text-gray-400">Air Saturation</p>
+        </div>
+
+        <div class="card flex flex-col gap-6 border-2 border-green-900 bg-green-950/30">
+            <div class="flex items-center justify-between">
+                <h2 class="text-xl font-bold text-white">Irrigation Control</h2>
+                <span id="pump-status-badge" class="px-3 py-1 text-xs font-bold rounded-full bg-gray-700 text-gray-300">PUMP OFF</span>
+            </div>
+            <div class="flex items-center justify-center gap-6 flex-grow">
+                <label for="pump-toggle" class="flex items-center cursor-pointer select-none">
+                    <div class="relative">
+                        <input type="checkbox" id="pump-toggle" class="sr-only" onchange="toggleIrrigation()">
+                        <div class="toggle-bg block bg-gray-700 w-20 h-10 rounded-full border-2 border-gray-600"></div>
+                        <div class="toggle-dot absolute bg-white w-12 h-12 rounded-full shadow-xl border-4 border-gray-700"></div>
+                    </div>
+                </label>
+            </div>
+            <p class="text-xs text-center text-gray-500 pt-2 border-t border-gray-800">Last Command: <span id="last-command-time">Never</span></p>
+        </div>
+
+        <div class="card h-64 flex flex-col">
+            <h2 class="text-sm font-semibold text-gray-400 mb-2">Soil Moisture Trend</h2>
+            <div class="flex-grow relative">
+                <canvas id="soilChart"></canvas>
+            </div>
+        </div>
+
+        <div class="card h-64 flex flex-col">
+            <h2 class="text-sm font-semibold text-gray-400 mb-2">Temperature Trend</h2>
+            <div class="flex-grow relative">
+                <canvas id="tempChart"></canvas>
+            </div>
+        </div>
+
+        <div class="card h-64 flex flex-col">
+            <h2 class="text-sm font-semibold text-gray-400 mb-2">Humidity Trend</h2>
+            <div class="flex-grow relative">
+                <canvas id="humChart"></canvas>
+            </div>
+        </div>
+
+        <div class="card h-64 flex flex-col border-2 border-blue-900 bg-blue-950/20">
+            <div class="flex items-center gap-2 mb-4">
+                <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+                <h2 class="text-lg font-bold text-white">Logic Engine V1</h2>
+            </div>
+            
+            <div class="flex-grow flex flex-col justify-center items-center text-center gap-2">
+                <p class="text-sm text-gray-400">Action Recommended:</p>
+                <h3 id="recommendation-text" class="text-2xl font-bold tracking-wider">ANALYZING...</h3>
+                <p id="recommendation-reason" class="text-xs mt-2 text-gray-400">Awaiting sensor data</p>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="mt-12 pt-6 border-t border-gray-700 text-center text-gray-500 text-sm">
+        System Last Updated: <span id="last-updated-time">--</span> | 🔄 Polling every 5s
+    </footer>
+
+    <script>
+        const API_DATA_URL = 'http://localhost:5000/api/data';
+        const API_IRRIGATION_URL = 'http://localhost:5000/api/irrigation';
+        let currentPumpState = false;
+
+        // --- CHART JS SETUP ---
+        // Arrays to hold the last 12 data points (1 minute of history)
+        const MAX_POINTS = 12;
+        let timeLabels = Array(MAX_POINTS).fill('');
+        let soilData = Array(MAX_POINTS).fill(null);
+        let tempData = Array(MAX_POINTS).fill(null);
+        let humData = Array(MAX_POINTS).fill(null);
+
+        // Global Chart config for dark mode
+        Chart.defaults.color = '#9ca3af';
+        Chart.defaults.font.family = "'Poppins', sans-serif";
+        const commonOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: { display: false }, ticks: { display: false } }, // Hide X axis labels for clean look
+                y: { grid: { color: 'rgba(255, 255, 255, 0.1)' }, border: { dash: [4, 4] } }
+            },
+            elements: { line: { tension: 0.4 }, point: { radius: 0 } }, // Smooth curves, hide dots
+            animation: { duration: 500 }
+        };
+
+        // Initialize Charts
+        const soilChart = new Chart(document.getElementById('soilChart').getContext('2d'), {
+            type: 'line', data: { labels: timeLabels, datasets: [{ data: soilData, borderColor: '#48bb78', borderWidth: 2 }] }, options: { ...commonOptions, scales: { y: { suggestedMin: 0, suggestedMax: 100, ...commonOptions.scales.y } } }
+        });
+        const tempChart = new Chart(document.getElementById('tempChart').getContext('2d'), {
+            type: 'line', data: { labels: timeLabels, datasets: [{ data: tempData, borderColor: '#f87171', borderWidth: 2 }] }, options: commonOptions
+        });
+        const humChart = new Chart(document.getElementById('humChart').getContext('2d'), {
+            type: 'line', data: { labels: timeLabels, datasets: [{ data: humData, borderColor: '#60a5fa', borderWidth: 2 }] }, options: { ...commonOptions, scales: { y: { suggestedMin: 0, suggestedMax: 100, ...commonOptions.scales.y } } }
+        });
+
+
+        // --- MAIN DATA FETCH ---
+       // --- MAIN DATA FETCH ---
+        async function fetchAndUpdateData() {
+            try {
+                const response = await fetch(API_DATA_URL);
+                if (!response.ok) throw new Error('Network response was not ok');
+                const data = await response.json();
+                
+                // --- 1. CONNECTION STATUS CHECK ---
+                const statusIndicator = document.getElementById('status-indicator');
+                // Get the text span immediately following the indicator dot
+                const statusText = statusIndicator.nextElementSibling; 
+
+                if (data.connected === false) {
+                    // System is OFFLINE
+                    statusIndicator.className = "w-3 h-3 bg-red-500 rounded-full";
+                    statusText.innerText = "System: OFFLINE";
+                    statusText.className = "text-sm font-medium text-red-400";
+                    return; // 🛑 STOP EXECUTING! We don't want to draw stale data on the charts.
+                } else {
+                    // System is ONLINE
+                    statusIndicator.className = "w-3 h-3 bg-green-500 rounded-full status-pulse";
+                    statusText.innerText = "System: Connected";
+                    statusText.className = "text-sm font-medium text-gray-300";
+                }
+
+                // --- 2. AUTO-SYNC PUMP UI ---
+                // If the backend auto-shut off the pump, update the UI automatically!
+                if (currentPumpState !== data.pump_state) {
+                    currentPumpState = data.pump_state;
+                    updatePumpUI(data.pump_state);
+                }
+
+                // --- 3. UPDATE UI TEXT ---
+                const soilPercent = data.soil; 
+                document.getElementById('temperature-value').innerText = data.temperature.toFixed(1);
+                document.getElementById('humidity-value').innerText = data.humidity.toFixed(1);
+                document.getElementById('soil-moisture-percent').innerText = soilPercent;
+                document.getElementById('soil-bar').style.width = soilPercent + '%';
+
+                // Dynamic Soil Text
+                let statusMsg = "Dry";
+                let statusColor = "text-red-400";
+                if (soilPercent > 60) { statusMsg = "Wet"; statusColor = "text-blue-400"; } 
+                else if (soilPercent > 20) { statusMsg = "Moist"; statusColor = "text-green-400"; }
+                document.getElementById('soil-raw-value').innerHTML = `<span class="${statusColor}">${statusMsg}</span>`;
+
+                // --- 4. UPDATE CHARTS ---
+                const now = new Date().toLocaleTimeString();
+                timeLabels.push(now); timeLabels.shift();
+                
+                soilData.push(soilPercent); soilData.shift();
+                tempData.push(data.temperature); tempData.shift();
+                humData.push(data.humidity); humData.shift();
+
+                soilChart.update();
+                tempChart.update();
+                humChart.update();
+
+                // --- 5. RUN LOGIC ENGINE ---
+                updateDecisionEngine(soilPercent);
+                document.getElementById('last-updated-time').innerText = now;
+
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                document.getElementById('status-indicator').className = "w-3 h-3 bg-red-500 rounded-full";
+            }
+        }
+
+        // --- LOGIC ENGINE ---
+        function updateDecisionEngine(soilMoisture) {
+            const recText = document.getElementById('recommendation-text');
+            const recReason = document.getElementById('recommendation-reason');
+
+            if (soilMoisture <= 20) {
+                recText.innerText = "YES";
+                recText.className = "text-4xl font-bold tracking-wider text-red-500";
+                recReason.innerText = "CRITICAL: Soil is too dry. Irrigation required immediately.";
+            } else if (soilMoisture > 20 && soilMoisture < 60) {
+                recText.innerText = "NOT YET";
+                recText.className = "text-3xl font-bold tracking-wider text-yellow-400";
+                recReason.innerText = "MONITORING: Soil is moist. No immediate action required.";
+            } else {
+                recText.innerText = "NO";
+                recText.className = "text-4xl font-bold tracking-wider text-green-500";
+                recReason.innerText = "OPTIMAL: Soil is sufficiently watered.";
+            }
+        }
+
+        // --- PUMP CONTROL ---
+        async function toggleIrrigation() {
+            const newState = !currentPumpState;
+            const toggle = document.getElementById('pump-toggle');
+            try {
+                const response = await fetch(API_IRRIGATION_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ state: newState })
+                });
+                if (!response.ok) throw new Error('Command failed');
+                currentPumpState = newState;
+                updatePumpUI(newState);
+                document.getElementById('last-command-time').innerText = new Date().toLocaleTimeString();
+            } catch (error) {
+                console.error('Error sending command:', error);
+                alert("Failed to send command to backend.");
+                toggle.checked = !newState; 
+            }
+        }
+
+        function updatePumpUI(state) {
+            const badge = document.getElementById('pump-status-badge');
+            const toggle = document.getElementById('pump-toggle');
+            toggle.checked = state;
+
+            if (state) {
+                badge.innerText = "PUMP ON";
+                badge.className = "px-3 py-1 text-xs font-bold rounded-full bg-green-500 text-green-950";
+            } else {
+                badge.innerText = "PUMP OFF";
+                badge.className = "px-3 py-1 text-xs font-bold rounded-full bg-gray-700 text-gray-300";
+            }
+        }
+
+        // --- STARTUP ---
+        fetchAndUpdateData();
+        fetch(API_IRRIGATION_URL).then(r => r.json()).then(cmd => {
+            currentPumpState = cmd.state;
+            updatePumpUI(cmd.state);
+        });
+        setInterval(fetchAndUpdateData, 5000);
+
+    </script>
+</body>
+</html>
