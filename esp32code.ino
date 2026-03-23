@@ -6,8 +6,8 @@
 // --- Wi-Fi & Server Settings ---
 const char* ssid = "ssid";
 const char* password = "pass";
-String serverPath = "http://<IP ADD>/api/data";
-String commandPath = "http://<IP_ADD/api/irrigation";
+String serverPath = "http://IP_ADD/api/data";
+String commandPath = "http://IP_ADD/api/irrigation";
 
 // --- Hardware Pins & Settings ---
 #define DHTPIN 4
@@ -38,66 +38,83 @@ void setup() {
   }
   Serial.println("\nConnected to WiFi!");
 }
-
 void loop() {
   if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\n====================================");
+    Serial.println("📡 INITIATING DATA TRANSMISSION...");
+    
+    // Check Wi-Fi Health
+    Serial.print("📶 Wi-Fi Signal Strength (RSSI): ");
+    Serial.println(WiFi.RSSI());
+    Serial.print("🎯 Target Server URL: ");
+    Serial.println(serverPath);
     
     // --- 1. READ SENSORS ---
     float temp = dht.readTemperature();
     float hum = dht.readHumidity();
     int rawSoil = analogRead(SOIL_PIN);
     
-    // Convert raw soil value to a 0-100 percentage
-    // map(value, fromLow, fromHigh, toLow, toHigh)
     int soilPercent = map(rawSoil, DRY_VALUE, WET_VALUE, 0, 100);
-    
-    // Constrain ensures it doesn't go below 0% or above 100% if readings fluctuate
     soilPercent = constrain(soilPercent, 0, 100);
 
     // --- 2. SEND DATA TO FLASK ---
     HTTPClient http;
+    // Set a slightly longer timeout just in case the network is slow (default is usually 5000ms)
+    http.setTimeout(10000); 
+    
     http.begin(serverPath);
     http.addHeader("Content-Type", "application/json");
 
     StaticJsonDocument<200> doc;
-    // Fallback to 0 if DHT fails, otherwise use real data
     doc["temperature"] = isnan(temp) ? 0.0 : temp;
     doc["humidity"] = isnan(hum) ? 0.0 : hum;
-    doc["soil"] = soilPercent; // Sending the calculated percentage!
+    doc["soil"] = soilPercent;
 
     String requestBody;
     serializeJson(doc, requestBody);
+    
+    Serial.print("📦 Payload generating: ");
+    Serial.println(requestBody);
+    
+    Serial.println("⏳ Sending POST request...");
     int httpResponseCode = http.POST(requestBody);
     
     if (httpResponseCode > 0) {
-      Serial.print("Data sent! Soil: "); Serial.print(soilPercent); Serial.println("%");
+      Serial.print("✅ SUCCESS! HTTP Status Code: "); 
+      Serial.println(httpResponseCode);
+      Serial.print("📩 Server Response: ");
+      Serial.println(http.getString());
     } else {
-      Serial.print("Error sending data: "); Serial.println(httpResponseCode);
+      Serial.print("❌ FAILED! HTTP Error Code: "); 
+      Serial.println(httpResponseCode);
+      Serial.print("🔍 Error Details: ");
+      // This is the magic line that translates the -1 error!
+      Serial.println(http.errorToString(httpResponseCode).c_str());
     }
     http.end();
 
     // --- 3. FETCH IRRIGATION COMMAND ---
+    // (Keeping this brief for now to focus on the POST error)
     http.begin(commandPath);
     int getCode = http.GET();
-    
     if (getCode > 0) {
       String payload = http.getString();
       StaticJsonDocument<100> commandDoc;
       deserializeJson(commandDoc, payload);
       bool pumpState = commandDoc["state"];
-
       if (pumpState) {
-        digitalWrite(RELAY_PIN, LOW); // Turn Relay ON
-        Serial.println("🌊 Pump commanded ON");
+        digitalWrite(RELAY_PIN, LOW);
       } else {
-        digitalWrite(RELAY_PIN, HIGH); // Turn Relay OFF
-        Serial.println("🚫 Pump commanded OFF");
+        digitalWrite(RELAY_PIN, HIGH);
       }
     }
     http.end();
+    
+    Serial.println("====================================\n");
   } else {
-    Serial.println("WiFi Disconnected!");
+    Serial.println("⚠️ WiFi Disconnected! Attempting to reconnect...");
+    WiFi.reconnect();
   }
   
-  delay(5000); // Run cycle every 5 seconds
+  delay(5000);
 }
